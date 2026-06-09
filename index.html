@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerSchool Weighted GPA Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                PowerSchool GPA Calculator
+            </h1>
+            <p class="text-slate-400 mt-2 text-sm sm:text-base">
+                Paste your raw PowerSchool attendance/grades text below to instantly compute your GPA.
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+                    <h2 class="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2">
+                        <span>1.</span> Paste Raw Grade Text
+                    </h2>
+                    <textarea 
+                        id="rawText" 
+                        class="w-full h-64 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm font-mono text-slate-300 focus:outline-none focus:border-indigo-500 transition"
+                        placeholder="Paste your copied text here... (including 'Attendance By Class...', course names, rooms, and mixed up numbers)"
+                    ></textarea>
+                    
+                    <button 
+                        onclick="processPowerSchoolText()" 
+                        class="w-full mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-indigo-600/20 transition cursor-pointer"
+                    >
+                        Parse & Calculate
+                    </button>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+                    <h2 class="text-lg font-bold mb-4 text-slate-300">GPA Weight Settings</h2>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <label class="text-sm text-slate-400">Honors Weight:</label>
+                            <input id="weightHonors" type="number" step="0.1" value="0.5" class="w-20 bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-center text-sm text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <label class="text-sm text-slate-400">AP Weight:</label>
+                            <input id="weightAP" type="number" step="0.1" value="1.0" class="w-20 bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-center text-sm text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 space-y-6">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+                        <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Weighted GPA</p>
+                        <p id="weightedGpaDisplay" class="text-4xl sm:text-5xl font-black text-emerald-400 mt-2">0.00</p>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl text-center shadow-xl">
+                        <p class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Unweighted GPA</p>
+                        <p id="unweightedGpaDisplay" class="text-4xl sm:text-5xl font-black text-blue-400 mt-2">0.00</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                    <div class="p-6 border-b border-slate-800 flex justify-between items-center flex-wrap gap-2">
+                        <h2 class="text-xl font-bold text-indigo-300">Course Breakdown & Adjustments</h2>
+                        <button onclick="addNewCourseRow()" class="bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 py-2 px-3 rounded-lg border border-slate-700 transition cursor-pointer">
+                            + Add Custom Class
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-950/50 text-slate-400 uppercase text-xs tracking-wider border-b border-slate-800">
+                                    <th class="py-3 px-4">Course Name</th>
+                                    <th class="py-3 px-4 w-24">Grade (%)</th>
+                                    <th class="py-3 px-4 w-36">Level / Weight</th>
+                                    <th class="py-3 px-4 w-24 text-center">Points</th>
+                                    <th class="py-3 px-4 w-16 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="courseTableBody" class="divide-y divide-slate-800/50 text-sm">
+                                <tr id="emptyStateRow">
+                                    <td colspan="5" class="py-10 text-center text-slate-500 italic">
+                                        No courses parsed yet. Paste your report text and click "Parse & Calculate".
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Array holding currently calculated course objects
+        let currentCourses = [];
+
+        // Converts a numerical percentage grade to a standard 4.0 scale point value
+        function getUnweightedPoints(grade) {
+            let g = parseFloat(grade);
+            if (isNaN(g)) return 0;
+            if (g >= 93) return 4.0;
+            if (g >= 90) return 3.7;
+            if (g >= 87) return 3.3;
+            if (g >= 83) return 3.0;
+            if (g >= 80) return 2.7;
+            if (g >= 77) return 2.3;
+            if (g >= 73) return 2.0;
+            if (g >= 70) return 1.7;
+            if (g >= 67) return 1.3;
+            if (g >= 65) return 1.0;
+            return 0.0;
+        }
+
+        // Tokenizes messy mashed up PowerSchool numeric strings back into array of separate grades
+        function parsePowerSchoolGradeString(str) {
+            // Cut off trailing 2 digits which usually mean Absences/Tardies (e.g. 11, 20, 00)
+            if (str.length > 2) {
+                str = str.slice(0, -2);
+            }
+            let grades = [];
+            let i = 0;
+            while (i < str.length) {
+                // If it starts with 100, look forward 3 indexes
+                if (str[i] === '1' && str[i+1] === '0' && str[i+2] === '0') {
+                    grades.push(100);
+                    i += 3;
+                } else {
+                    let g = parseInt(str.substr(i, 2));
+                    if (!isNaN(g)) {
+                        grades.push(g);
+                    }
+                    i += 2;
+                }
+            }
+            return grades; 
+        }
+
+        // Core parsing engine tailored directly to your copied text formatting
+        function processPowerSchoolText() {
+            const rawText = document.getElementById('rawText').value;
+            if(!rawText.trim()){
+                alert("Please paste text first.");
+                return;
+            }
+
+            // PowerSchool layout uses the word 'Email' separating course data lines
+            const segments = rawText.split("Email");
+            if (segments.length <= 1) {
+                alert("Could not cleanly parse format. Check that you copied the complete screen text layout.");
+                return;
+            }
+
+            let parsedCourses = [];
+
+            for (let i = 0; i < segments.length - 1; i++) {
+                let currentSegment = segments[i];
+                let nextSegment = segments[i+1];
+                
+                // 1. Extract Course Title from previous block segment end tail
+                let beforeLines = currentSegment.trim().split('\n');
+                let nameLine = beforeLines[beforeLines.length - 1] || "";
+                
+                // Eliminate preceding codes/dots like '202B(A). . . . ..' or '3B(A)----------'
+                let courseName = nameLine.replace(/^[\d\w\(\)-]+[\s.-]+/g, '').trim();
+                
+                if (!courseName || courseName.includes("Attendance") || courseName.length < 3) {
+                    if (beforeLines.length > 1) {
+                        nameLine = beforeLines[beforeLines.length - 2];
+                        courseName = nameLine.replace(/^[\d\w\(\)-]+[\s.-]+/g, '').trim();
+                    }
+                }
+
+                // Filtering non-credit or empty layout indicators
+                if (!courseName || courseName.toLowerCase().includes("homeroom") || courseName.toLowerCase().includes("flextime") || courseName.toLowerCase().includes("advisor")) {
+                    continue;
+                }
+
+                // 2. Extract accurate grades string block out of adjacent next segment
+                let roomMatch = nextSegment.match(/Rm:\s*[A-Z]\d{3}(\d+)/);
+                let detectedGrade = "";
+
+                if (roomMatch && roomMatch[1]) {
+                    let gradesArr = parsePowerSchoolGradeString(roomMatch[1]);
+                    if (gradesArr.length > 0) {
+                        // The last extracted structural grade token corresponds to Y1 (Year-End Summary)
+                        detectedGrade = gradesArr[gradesArr.length - 1]; 
+                    }
+                } else {
+                    // Fallback scanner matching separate single integers 50-100 embedded in text space bounds
+                    let generalNums = nextSegment.match(/\b(100|[5-9]\d)\b/g);
+                    if (generalNums && generalNums.length > 0) {
+                        detectedGrade = generalNums[generalNums.length - 1];
+                    }
+                }
+
+                if (!detectedGrade && courseName.toLowerCase().includes("study hall")) {
+                    continue; // Auto-skip classic zero credit study blocks
+                }
+
+                // 3. Class tier weight auto tracking
+                let type = "regular";
+                if (courseName.toLowerCase().includes("honors")) {
+                    type = "honors";
+                } else if (courseName.toLowerCase().includes("ap")) {
+                    type = "ap";
+                }
+
+                parsedCourses.push({
+                    name: courseName,
+                    grade: detectedGrade || "",
+                    type: type
+                });
+            }
+
+            currentCourses = parsedCourses;
+            renderTable();
+            calculateGPA();
+        }
+
+        // Renders or refreshes rows inside interactive preview table grid
+        function renderTable() {
+            const tbody = document.getElementById('courseTableBody');
+            tbody.innerHTML = "";
+
+            if(currentCourses.length === 0) {
+                tbody.innerHTML = `<tr id="emptyStateRow"><td colspan="5" class="py-10 text-center text-slate-500 italic">No courses loaded. Try pasting text again.</td></tr>`;
+                return;
+            }
+
+            currentCourses.forEach((course, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/30 transition";
+                tr.innerHTML = `
+                    <td class="py-3 px-4">
+                        <input type="text" value="${course.name}" onchange="updateCourseData(${index}, 'name', this.value)" class="w-full bg-transparent text-white border-b border-transparent hover:border-slate-700 focus:border-indigo-500 focus:outline-none pb-0.5">
+                    </td>
+                    <td class="py-3 px-4">
+                        <input type="number" value="${course.grade}" onchange="updateCourseData(${index}, 'grade', this.value)" class="w-full bg-slate-950 border border-slate-800 rounded p-1 text-center text-white focus:outline-none focus:border-indigo-500">
+                    </td>
+                    <td class="py-3 px-4">
+                        <select onchange="updateCourseData(${index}, 'type', this.value)" class="w-full bg-slate-950 border border-slate-800 rounded p-1 text-slate-300 text-xs focus:outline-none focus:border-indigo-500">
+                            <option value="regular" ${course.type === 'regular' ? 'selected' : ''}>Regular</option>
+                            <option value="honors" ${course.type === 'honors' ? 'selected' : ''}>Honors</option>
+                            <option value="ap" ${course.type === 'ap' ? 'selected' : ''}>AP</option>
+                        </select>
+                    </td>
+                    <td id="pointsWeightDisplay-${index}" class="py-3 px-4 text-center font-semibold text-slate-300">
+                        0.00
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="deleteCourseRow(${index})" class="text-rose-400 hover:text-rose-300 transition text-xs font-medium cursor-pointer">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Realtime sync changes from inputs down back to tracking object 
+        function updateCourseData(index, property, value) {
+            currentCourses[index][property] = value;
+            calculateGPA();
+        }
+
+        // Appends fully pristine generic editable rows dynamically
+        function addNewCourseRow() {
+            currentCourses.push({
+                name: "New Course",
+                grade: "95",
+                type: "regular"
+            });
+            renderTable();
+            calculateGPA();
+        }
+
+        // Removes specified rows out of array tracking index mappings
+        function deleteCourseRow(index) {
+            currentCourses.splice(index, 1);
+            renderTable();
+            calculateGPA();
+        }
+
+        // Processes overall averages & maps points output arrays to screens
+        function calculateGPA() {
+            if (currentCourses.length === 0) {
+                document.getElementById('weightedGpaDisplay').innerText = "0.00";
+                document.getElementById('unweightedGpaDisplay').innerText = "0.00";
+                return;
+            }
+
+            const hWeight = parseFloat(document.getElementById('weightHonors').value) || 0;
+            const apWeight = parseFloat(document.getElementById('weightAP').value) || 0;
+
+            let totalUnweightedPoints = 0;
+            let totalWeightedPoints = 0;
+            let count = 0;
+
+            currentCourses.forEach((course, index) => {
+                if(course.grade === "") return; // Skip classes lacking active grade values
+
+                let unweighted = getUnweightedPoints(course.grade);
+                let weightBonus = 0;
+
+                if (course.type === 'honors') weightBonus = hWeight;
+                if (course.type === 'ap') weightBonus = apWeight;
+
+                let weighted = unweighted + weightBonus;
+
+                totalUnweightedPoints += unweighted;
+                totalWeightedPoints += weighted;
+                count++;
+
+                // Dynamically update points column output text string
+                const cell = document.getElementById(`pointsWeightDisplay-${index}`);
+                if(cell) {
+                    cell.innerText = weighted.toFixed(2);
+                }
+            });
+
+            if (count > 0) {
+                let finalUnweightedGpa = totalUnweightedPoints / count;
+                let finalWeightedGpa = totalWeightedPoints / count;
+
+                document.getElementById('weightedGpaDisplay').innerText = finalWeightedGpa.toFixed(2);
+                document.getElementById('unweightedGpaDisplay').innerText = finalUnweightedGpa.toFixed(2);
+            } else {
+                document.getElementById('weightedGpaDisplay').innerText = "0.00";
+                document.getElementById('unweightedGpaDisplay').innerText = "0.00";
+            }
+        }
+
+        // Attach recalculate event bindings onto configuration parameters changes instantly
+        document.getElementById('weightHonors').addEventListener('input', calculateGPA);
+        document.getElementById('weightAP').addEventListener('input', calculateGPA);
+    </script>
+</body>
+</html>
