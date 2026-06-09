@@ -11,6 +11,15 @@
                 color: #f8fafc;
             }
         </style>
+        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Average+Sans&display=swap"
+            rel="stylesheet"
+        />
+        <meta name="darkreader-lock" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
     </head>
     <body class="min-h-screen font-sans antialiased">
         <div class="max-w-6xl mx-auto px-4 py-8">
@@ -46,7 +55,7 @@
                             onclick="processPowerSchoolText()"
                             class="w-full mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-indigo-600/20 transition cursor-pointer"
                         >
-                            Parse & Calculate
+                            Calculate!
                         </button>
                     </div>
 
@@ -177,6 +186,28 @@
                     </div>
                 </div>
             </div>
+            <h2 class="text-2xl p-3">Our sponsors</h2>
+
+            <a
+                href="https://sites.google.com/view/samweather"
+                class="text-5xl text-center rounded-md text-black p-10 m-10 transition-all hover:scale-102"
+                style="
+                    font-family: &quot;Average Sans&quot;;
+                    background-color: #afbdec;
+                    display: block;
+                "
+                >SamWeather</a
+            >
+            <a
+                href="https://seabass-co.printful.me"
+                class="text-5xl text-center rounded-md text-black p-10 m-10 transition-all hover:scale-102"
+                style="
+                    font-family: system-ui;
+                    background-color: #dedede;
+                    display: block;
+                "
+                >Seabass Co</a
+            >
         </div>
 
         <script>
